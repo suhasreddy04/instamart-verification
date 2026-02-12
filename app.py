@@ -6,14 +6,9 @@ app = Flask(__name__)
 
 # ================= CONFIG =================
 SECRET_KEY = "instamart_secure_key_2026"
-
-# Folder where PDFs are stored
 INVOICE_FOLDER = "invoices"
-
-# In-memory DB (⚠ resets on restart)
 ORDERS_DB = {}
 
-# Ensure invoice folder exists
 if not os.path.exists(INVOICE_FOLDER):
     os.makedirs(INVOICE_FOLDER)
 
@@ -58,7 +53,7 @@ def serve_invoice(order_id):
         INVOICE_FOLDER,
         filename,
         mimetype="application/pdf",
-        as_attachment=False  # IMPORTANT → opens in browser, no auto download
+        as_attachment=False
     )
 
 
@@ -95,13 +90,39 @@ def verify_invoice():
         </h2>
         """
 
-    # Build items HTML
+    # ================= BUILD ITEMS HTML =================
     items_html = ""
+
     for item in order.get("items", []):
+        mrp = float(item.get("mrp", item.get("final_price", 0)))
+        final_price = float(item.get("final_price", mrp))
+
+        # Strike logic
+        if mrp > final_price:
+            price_html = f"""
+                <div>
+                    <span style="text-decoration:line-through;color:#999;font-size:13px;">
+                        ₹{mrp:.2f}
+                    </span>
+                    <span style="font-weight:bold;margin-left:6px;">
+                        ₹{final_price:.2f}
+                    </span>
+                </div>
+            """
+        else:
+            price_html = f"""
+                <div style="font-weight:bold;">
+                    ₹{final_price:.2f}
+                </div>
+            """
+
         items_html += f"""
         <div class="item-row">
-            <span>{item['name']}</span>
-            <span>x{item['qty']}</span>
+            <div>
+                {item['name']} <br>
+                <small style="color:#777;">Qty: {item['qty']}</small>
+            </div>
+            {price_html}
         </div>
         """
 
@@ -132,20 +153,8 @@ def verify_invoice():
             padding:18px;
             text-align:center;
             color:white;
-        }}
-
-        .header-content {{
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            gap:10px;
             font-size:18px;
             font-weight:bold;
-        }}
-
-        .logo {{
-            height:32px;
-            object-fit:contain;
         }}
 
         .section {{
@@ -190,7 +199,13 @@ def verify_invoice():
         .item-row {{
             display:flex;
             justify-content:space-between;
-            padding:4px 0;
+            align-items:flex-start;
+            padding:8px 0;
+            border-bottom:1px solid #eee;
+        }}
+
+        .item-row:last-child {{
+            border-bottom:none;
         }}
 
         .total {{
@@ -206,10 +221,7 @@ def verify_invoice():
         <div class="card">
 
             <div class="header">
-                <div class="header-content">
-                     
-                    <span>Instamart Invoice</span>
-                </div>
+                Instamart Invoice
             </div>
 
             <div class="section">
