@@ -22,14 +22,22 @@ def home():
 # ================= STORE ORDER =================
 @app.route("/store-order", methods=["POST"])
 def store_order():
+
     data = request.json
     order_id = str(data.get("order_id", "")).strip()
 
     if not order_id:
         return jsonify({"error": "Missing order_id"}), 400
 
+    # Normalize total
     if "total" in data:
         data["total"] = format(float(data["total"]), ".2f")
+
+    # Combine brand + name cleanly
+    for item in data.get("items", []):
+        brand = item.get("brand", "")
+        name = item.get("name", "")
+        item["display_name"] = f"{brand} {name}".strip()
 
     ORDERS_DB[order_id] = data
 
@@ -94,14 +102,13 @@ def verify_invoice():
     items_html = ""
 
     for item in order.get("items", []):
+
         mrp = float(item.get("mrp", 0))
         final_price = float(item.get("final_price", mrp))
 
-        # Safety: if final price invalid or zero, fallback to mrp
         if final_price <= 0:
             final_price = mrp
 
-        # Strike only if real discount exists
         if mrp > final_price:
             price_html = f"""
                 <div>
@@ -120,17 +127,19 @@ def verify_invoice():
                 </div>
             """
 
+        display_name = item.get("display_name") or item.get("name", "")
+
         items_html += f"""
         <div class="item-row">
             <div>
-                {item['name']} <br>
-                <small style="color:#777;">Qty: {item['qty']}</small>
+                {display_name} <br>
+                <small style="color:#777;">Qty: {item.get('qty',1)}</small>
             </div>
             {price_html}
         </div>
         """
 
-    # ================= COUPON COLOR LOGIC =================
+    # ================= COUPON =================
     coupon = order.get("coupon", "N/A")
 
     if coupon and coupon != "N/A":
@@ -140,7 +149,7 @@ def verify_invoice():
         </span>
         """
     else:
-        coupon_html = f"""
+        coupon_html = """
         <span class="coupon-badge coupon-none">
             No Coupon
         </span>
@@ -151,8 +160,8 @@ def verify_invoice():
     <head>
         <title>Instamart Invoice Verification</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-
         <style>
+
         body {{
             font-family: Arial, sans-serif;
             background:#f5f6fa;
@@ -253,6 +262,7 @@ def verify_invoice():
             font-weight:bold;
             margin-top:14px;
         }}
+
         </style>
     </head>
 
