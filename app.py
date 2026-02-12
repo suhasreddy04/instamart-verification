@@ -94,25 +94,29 @@ def verify_invoice():
     items_html = ""
 
     for item in order.get("items", []):
-        mrp = float(item.get("mrp", item.get("final_price", 0)))
+        mrp = float(item.get("mrp", 0))
         final_price = float(item.get("final_price", mrp))
 
-        # Strike logic
+        # Safety: if final price invalid or zero, fallback to mrp
+        if final_price <= 0:
+            final_price = mrp
+
+        # Strike only if real discount exists
         if mrp > final_price:
             price_html = f"""
                 <div>
                     <span style="text-decoration:line-through;color:#999;font-size:13px;">
                         ₹{mrp:.2f}
                     </span>
-                    <span style="font-weight:bold;margin-left:6px;">
+                    <span style="font-weight:bold;margin-left:6px;color:#000;">
                         ₹{final_price:.2f}
                     </span>
                 </div>
             """
         else:
             price_html = f"""
-                <div style="font-weight:bold;">
-                    ₹{final_price:.2f}
+                <div style="font-weight:bold;color:#000;">
+                    ₹{mrp:.2f}
                 </div>
             """
 
@@ -124,6 +128,22 @@ def verify_invoice():
             </div>
             {price_html}
         </div>
+        """
+
+    # ================= COUPON COLOR LOGIC =================
+    coupon = order.get("coupon", "N/A")
+
+    if coupon and coupon != "N/A":
+        coupon_html = f"""
+        <span class="coupon-badge coupon-applied">
+            {coupon}
+        </span>
+        """
+    else:
+        coupon_html = f"""
+        <span class="coupon-badge coupon-none">
+            No Coupon
+        </span>
         """
 
     return f"""
@@ -208,6 +228,25 @@ def verify_invoice():
             border-bottom:none;
         }}
 
+        .coupon-badge {{
+            padding:6px 12px;
+            border-radius:20px;
+            font-weight:bold;
+            font-size:12px;
+        }}
+
+        .coupon-applied {{
+            background:#e3f2fd;
+            color:#1565c0;
+            border:1px solid #1565c0;
+        }}
+
+        .coupon-none {{
+            background:#f5f5f5;
+            color:#777;
+            border:1px solid #ccc;
+        }}
+
         .total {{
             font-size:18px;
             color:#2656d9;
@@ -285,7 +324,7 @@ def verify_invoice():
                 <hr>
 
                 <div class="row">
-                    <span class="label">Coupon Applied:</span> {order.get('coupon','N/A')}
+                    <span class="label">Coupon Applied:</span> {coupon_html}
                 </div>
 
                 <div class="total">
